@@ -1,0 +1,123 @@
+/* ============================================================================
+   freebuff-rtl.css — Persian RTL patch for Freebuff Desktop (Electron, Windows)
+
+   Vazirmatn (variable, wght 100-900) is served from the app's own origin as
+   /freebuff-rtl-font.woff2 (copied by install.ps1). It is applied ONLY to chat
+   text (message prose, user message, plan dock, composer) — menus, sidebar,
+   buttons keep their original font. The @font-face is scoped with
+   unicode-range to Arabic-script code points, so Latin letters keep Google
+   Sans / system-ui exactly as before.
+   ----------------------------------------------------------------------------
+   v3: direction selection is done per text block by freebuff-rtl-user.js
+   (dir="auto"), which also puts list bullets/numbers on the correct side per
+   item. This stylesheet is the companion that fixes alignment/padding and
+   keeps code, paths and tables as LTR islands. Without the JS file, chat text
+   stays LTR: re-run apply-rtl-patch.ps1 to restore both files.
+
+   Selectors confirmed against the installed build's CSS/JS bundle
+   (orchestrator/ui/assets/index-*.css / index-*.js, 2026-10-28):
+     .msg.assistant .prose   <- assistant markdown text
+     .msg .user-message-text <- your typed message text
+     .question-dock .prose   <- agent's plan / questions dock
+     .composer .composer-input[data-composer-input]
+                             <- the message input (contenteditable div;
+                                .composer textarea is a defensive fallback)
+     .md-code/.md-pre/.md-inline/.md-table-wrap <- markdown code/tables
+============================================================================ */
+
+/* ---- 1. Message container mirrors ------------------------------
+   `text-align: start` is resolved per element: with dir="auto" coming from
+   the JS patch, a Persian paragraph right-aligns and an English paragraph
+   left-aligns, each in its own reading direction. */
+.msg.assistant .prose,
+.question-dock .prose {
+  direction: rtl;
+  text-align: start;
+}
+/* Do NOT put `direction: rtl` on an element the script sets dir="auto" on
+   (the user-message bubble below is one). Author CSS outranks the dir
+   attribute's UA rule, so a hard `direction: rtl` there would force RTL —
+   right alignment and bidi base level — on Latin-only user messages too.
+   `text-align: start` alone follows dir="auto" per block. */
+.msg .user-message-text {
+  text-align: start;
+}
+.msg.assistant .prose :is(p, h1, h2, h3, h4, h5, h6, blockquote, li, dd, dt),
+.question-dock .prose :is(p, h1, h2, h3, h4, h5, h6, blockquote, li, dd, dt),
+.msg .user-message-text {
+  text-align: start;
+}
+
+/* ---- 2. List side padding that the default CSS hard-codes for LTR ---------- */
+.msg.assistant .prose :is(ul, ol),
+.question-dock .prose :is(ul, ol) {
+  padding-left: 0;
+  padding-right: 24px;
+}
+.msg.assistant .prose blockquote,
+.question-dock .prose blockquote {
+  border-left: 0;
+  border-right: 3px solid var(--border);
+}
+
+/* ---- 1b. Chat text font: Vazirmatn for Persian, original stack for Latin --- */
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('/freebuff-rtl-font.woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  /* Arabic script + Persian/Arabic punctuation and ZWNJ/RLM. Latin letters
+     are outside the range, so they keep the next font in the stack. */
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-08FF, U+FB50-FDFF,
+    U+FE70-FEFF, U+200C-200F;
+}
+.msg.assistant .prose,
+.question-dock,
+.qedit,
+.thread-detail-steer-input,
+.msg .user-message-text,
+.composer [data-composer-input] {
+  font-family: 'Vazirmatn', "Google Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+}
+
+/* ---- 2b. Composer: each typed line picks its own direction -----------------
+   `dir="auto"` (from the JS patch) sets the base direction of the whole
+   input from the FIRST strong character of the entire content, so a Persian
+   line typed after an English one still rendered left-aligned. CSS
+   `unicode-bidi: plaintext` splits the contenteditable into per-paragraph
+   bidi blocks: each line takes its own base direction from its own first
+   strong character (English line -> LTR/left, Persian line -> RTL/right).
+   Combined with text-align: start each line also aligns to its own side. */
+.composer [data-composer-input],
+.qedit,
+.thread-detail-steer-input,
+.question-free {
+  unicode-bidi: plaintext;
+  text-align: start;
+}
+
+/* ---- 2c. Question/ask dock: per-text alignment -----------------------------
+   The dock's text nodes are spans (not .prose), so they get dir="auto" from
+   the JS patch but inherit text-align from the LTR page and stay
+   left-aligned until they get their own start alignment. With dir="auto",
+   text-align: start resolves per element: a Persian label right-aligns, an
+   English label stays left. The dock's boxes (option rows, buttons) keep
+   their LTR layout - only the text inside follows content. */
+.question-text,
+.question-chip,
+.question-hint,
+.question-option-label,
+.question-option-desc,
+.question-plan,
+.question-free {
+  text-align: start;
+}
+
+/* ---- 3. Code blocks, inline code, tables, diffs: LTR islands --------------- */
+.msg.assistant .prose :is(code, pre, .md-inline, .md-code, .md-code-head, .md-code-lang, .md-pre, .md-table-wrap, .md-table-scroll),
+.question-dock .prose :is(code, pre, .md-inline, .md-code, .md-code-head, .md-code-lang, .md-pre, .md-table-wrap, .md-table-scroll) {
+  direction: ltr;
+  text-align: left;
+  unicode-bidi: isolate;
+}
