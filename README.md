@@ -1,10 +1,39 @@
 # Freebuff Desktop RTL + Persian Font Patch
 
+**راست‌به‌چپ برای چت Freebuff دسکتاپ** — متن فارسی و عربی از راست به چپ و درست خوانده می‌شود؛
+کد، جدول و بقیهٔ رابط دست‌نخورده می‌مانند. نصب: [نصب (فارسی)](#نصب-فارسی).
+
 Community patch for [Freebuff Desktop](https://freebuff.com) (Electron, Windows) that makes
 chat text render right-to-left correctly for Persian (Farsi), Arabic, Urdu and Hebrew —
 while code blocks, tables, paths and the rest of the UI stay untouched.
 
 Upstream feature requests: freebuff GitHub issues **#948** and **#1397**.
+
+## نمونه / Demo
+
+![متن فارسی و عربی در چت Freebuff دسکتاپ راست‌به‌چپ رندر می‌شود و بلوک‌های کد چپ‌به‌راست می‌مانند](docs/demo-fa-ar.png)
+
+Each paragraph resolves its own direction, list markers sit on the item's own side, and
+code blocks stay left-to-right.
+
+## نصب (فارسی)
+
+از [Releases](https://github.com/AlirezaEtemadi12/freebuff-desktop-rtl/releases/latest) فایل
+`freebuff-desktop-rtl-v1.0.0.zip` را دانلود و در یک پوشه استخراج کنید، سپس در همان پوشه
+PowerShell را باز کنید و اجرا کنید:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
+```
+
+بعد **Freebuff را کامل ببندید** (از سینی سیستم هم خارج شود) و دوباره باز کنید؛ تا این کار را
+نکنید تغییری نمی‌بینید.
+
+- دسترسی ادمین لازم نیست؛ پچ فقط فایل‌های نصب‌شده در `%LOCALAPPDATA%` را تغییر می‌دهد.
+- حذف کامل: `uninstall.ps1` را به همین شکل اجرا کنید و یک بار ری‌استارت کنید.
+- بعد از هر آپدیت اپ، `install.ps1` را دوباره اجرا کنید، یا یک‌بار خودکارسازی را نصب کنید
+  (بخش «After a Freebuff app update» در ادامه).
+- اگر اپ در مسیر غیرمعمولی نصب است: `-UiPath "D:\Freebuff\resources\orchestrator\ui"`.
 
 ## What it does
 
@@ -30,13 +59,17 @@ Upstream feature requests: freebuff GitHub issues **#948** and **#1397**.
 - Scope is chat message text + text inputs only. No app-wide mirroring, no profile changes,
   no dependency on network at runtime.
 
-## Install
+## Install (English)
+
+Download `freebuff-desktop-rtl-v1.0.0.zip` from
+[Releases](https://github.com/AlirezaEtemadi12/freebuff-desktop-rtl/releases/latest), extract
+it, then from that folder run:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File install.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-Then fully close and reopen the Freebuff app.
+Then fully close and reopen the Freebuff app (including the tray icon).
 
 Optional switches:
 
@@ -122,19 +155,6 @@ Persian/English threads, lists, code fences and tables in both light and dark th
 - Patch code: MIT (see `LICENSE`).
 - Vazirmatn font: SIL Open Font License 1.1 (see `FONT-LICENSE`) — © The Vazirmatn Project
   Authors (https://github.com/rastikerdar/vazirmatn).
-
----
-
-## README در فارسی
-
-پچ جامعه‌متعلق برای رابط دسکتاپِ [Freebuff](https://freebuff.com) (ویندوز) که متن چت را
-برای فارسی/عربی راست‌به‌چپ صحیح می‌کند: هر پاراگراف جهت خودش را از زبان خودش می‌گیرد،
-کدها و جدول‌ها چپ‌به‌راست می‌مانند و کامپوزر و باکس‌های ویرایش هم هر خط را سمت خودش
-می‌نشینند. فونت چت به **Vazirmatn** تغییر می‌کند (کاملاً آفلاین، از سرور خود اپ).
-
-نصب: `install.ps1` را اجرا کنید، اپ را ببندید و دوباره باز کنید. حذف: `uninstall.ps1`.
-بعد از هر آپدیت اپ، اجرای دوبارهٔ `install.ps1` کافی است (گزینهٔ خودکارسازی در بالا).
-پچ به ادمین نیاز ندارد و هیچ تنظیم پروفایلی را دست نمی‌زند.
 
 ---
 
