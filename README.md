@@ -1,11 +1,13 @@
 # Freebuff Desktop RTL + Persian Font Patch
 
 **راست‌به‌چپ برای چت Freebuff دسکتاپ** — متن فارسی و عربی از راست به چپ و درست خوانده می‌شود؛
-کد، جدول و بقیهٔ رابط دست‌نخورده می‌مانند. نصب: [نصب (فارسی)](#نصب-فارسی).
+کدها چپ‌به‌راست می‌مانند و جدول‌های فارسی از راست به چپ چیده می‌شوند؛ بقیهٔ رابط دست‌نخورده
+است. نصب: [نصب (فارسی)](#نصب-فارسی).
 
 Community patch for [Freebuff Desktop](https://freebuff.com) (Electron, Windows) that makes
 chat text render right-to-left correctly for Persian (Farsi), Arabic, Urdu and Hebrew —
-while code blocks, tables, paths and the rest of the UI stay untouched.
+while code blocks, paths and the rest of the UI stay untouched, and a Persian table is mirrored
+first column on the right.
 
 Upstream feature requests: freebuff GitHub issues **#948** and **#1397**.
 
@@ -43,7 +45,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
   message paragraphs plus a tiny same-origin script that sets `dir="auto"` on each text
   block (including list items — pure CSS cannot put the list bullet/number on the item's
   own side).
-- **Code stays LTR**: inline code, code blocks, tables and diffs are bidi islands.
+- **Code stays LTR**: inline code, code blocks and diffs are bidi islands.
+- **Tables follow their own language**: a markdown table whose header cells are Persian/Arabic
+  is mirrored (first column on the right, cells right-aligned); a table of English content keeps
+  the app's original LTR layout.
 - **Composer / queued-prompt edit box / Steer box**: each **typed line** picks its own
   direction and alignment (`dir="auto"` + `unicode-bidi: plaintext`), so you can mix an
   English line and a Persian line in one message and each sits on its own side.
@@ -137,7 +142,12 @@ passes because only `script-src` is locked down. The patch:
 - `[data-composer-input]` (contenteditable div, this build) + safety-net `.composer textarea`.
 - `.qedit` and `.thread-detail-steer-input` (plain textareas) for the queued-prompt edit
   box and Steer box.
-- LTR islands for `.md-*` code/table elements and `code`/`pre`.
+- LTR islands for `.md-*` code elements and `code`/`pre`.
+- Tables: the app draws every table LTR (`.prose th,.prose td{text-align:left}` and `direction`
+  from the wrapper). The script counts strong characters in the header cells and sets
+  `dir="rtl"` on a table whose labels are Arabic-script; CSS then flips the column order and
+  aligns cells to `start`. Headers with fewer than two letters (all-numeric) fall back to the
+  table body. English tables get no attribute and are untouched.
 
 Tested against the Windows build of Freebuff Desktop (October 2026 build) with mixed
 Persian/English threads, lists, code fences and tables in both light and dark themes.
@@ -149,6 +159,9 @@ Persian/English threads, lists, code fences and tables in both light and dark th
    rules silently stop matching — safe but a good bug report if you see it.
 3. Standalone file paths and mixed Latin tokens inside Persian sentences follow standard
    Unicode bidi rules; some visual scrambling there is inherent, not a bug.
+4. Table direction comes from the header row: a Persian-header table is mirrored even when its
+   cells are mostly English, while an English-header table stays LTR even inside a Persian
+   thread.
 
 ## License
 
@@ -162,8 +175,9 @@ Persian/English threads, lists, code fences and tables in both light and dark th
 
 رقعة مجتمعية لتطبيق [Freebuff](https://freebuff.com) المكتبي (Electron، ويندوز) تجعل نص
 المحادثة يُعرض من اليمين إلى اليسار بشكل صحيح للفارسية والعربية والأردية والعبرية، مع
-بقاء الشيفرة والجداول والمسارات من اليسار إلى اليمين، وبقاء بقية الواجهة (الشريط الجانبي،
-الأزرار) دون تغيير.
+بقاء الشيفرة والمسارات من اليسار إلى اليمين، وبقاء بقية الواجهة (الشريط الجانبي،
+الأزرار) دون تغيير. الجدول الذي عناوينه عربية/فارسية يُقلَب اتجاهه: العمود الأول على اليمين
+وخلاياه محاذاة إلى اليمين، أما جدول المحتوى الإنجليزي فيبقى كما هو.
 
 - كل فقرة تأخذ اتجاهها من لغتها تلقائيًا (`dir="auto"` + `unicode-bidi: plaintext`)، فلا
   حاجة إلى إعداد لغة.

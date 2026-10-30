@@ -121,3 +121,26 @@
   text-align: left;
   unicode-bidi: isolate;
 }
+
+/* ---- 3b. Tables whose own content is Persian: mirror the table -------------
+   The app lays EVERY table out for LTR: `direction` comes from the wrapper and
+   `.prose th,.prose td` hard-codes `text-align: left`. For a Persian table that
+   means the first column sits on the left and every Persian cell hugs the left
+   edge, so short lines end up ragged on the right (and the whole table reads in
+   the wrong direction).
+   freebuff-rtl-user.js decides per table: a table whose header cells are
+   Arabic-script gets `dir="rtl"`, which flips column order (first column on the
+   right). These rules then align every cell to that direction's start edge.
+   Tables of English content keep `dir="ltr"` and the app's own layout. */
+.prose table[dir='rtl'] {
+  direction: rtl;
+}
+.prose table[dir='rtl'] :is(th, td) {
+  text-align: start;
+}
+/* A wide RTL table should open on its first (rightmost) column instead of
+   starting at the left edge of an LTR scroll container. */
+.prose .md-table-wrap:has(> .md-table-scroll > table[dir='rtl']),
+.prose .md-table-scroll:has(> table[dir='rtl']) {
+  direction: rtl;
+}

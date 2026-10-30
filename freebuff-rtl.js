@@ -14,7 +14,12 @@
  * on any failure it silently stops rather than hurting the app.
  *
  * Scope: chat message text only. Terminals, file views, diffs and the rest of
- * the app are untouched. Tables keep their LTR layout (dir is NOT set on them).
+ * the app are untouched.
+ *
+ * Tables: the app renders every table LTR (first column on the left, cells
+ * left-aligned). A table is marked dir="rtl" when its header cells are
+ * Arabic-script; the stylesheet then mirrors the column order and aligns cells
+ * to the right. English tables are left exactly as the app draws them.
  *
  * Composer note: in the current build the message input is a contenteditable
  * div (`div.composer-input[data-composer-input]`), not a textarea — the
@@ -47,8 +52,10 @@
     '.thread-detail-steer-input',
     '.question-free',
   ].join(', ')
+  var TABLE_SELECTOR = '.prose table'
 
   var processed = new WeakSet()
+  var tablesSeen = new WeakSet()
 
   function applyBlock(el) {
     if (processed.has(el)) return
@@ -58,12 +65,59 @@
     processed.add(el)
   }
 
+  // Arabic-script code points: Arabic, Persian, Urdu, Hebrew and their
+  // presentation forms. Latin letters are counted as the opposite side.
+  function isRtlCode(code) {
+    return (
+      (code >= 0x0590 && code <= 0x05ff) ||
+      (code >= 0x0600 && code <= 0x06ff) ||
+      (code >= 0x0750 && code <= 0x077f) ||
+      (code >= 0x08a0 && code <= 0x08ff) ||
+      (code >= 0xfb50 && code <= 0xfdff) ||
+      (code >= 0xfe70 && code <= 0xfeff)
+    )
+  }
+
+  function countStrong(text, total) {
+    for (var i = 0; i < text.length; i++) {
+      var c = text.charCodeAt(i)
+      if (isRtlCode(c)) total.rtl++
+      else if ((c >= 0x41 && c <= 0x5a) || (c >= 0x61 && c <= 0x7a)) total.ltr++
+    }
+    return total
+  }
+
+  // The header row is the language of the table's own labels; body rows are a
+  // fallback for headerless/numeric tables. Majority wins, so a table of
+  // English commands stays LTR even inside a Persian thread.
+  function markTable(table) {
+    if (tablesSeen.has(table)) return
+    tablesSeen.add(table)
+
+    var head = table.tHead
+    var total = { rtl: 0, ltr: 0 }
+    if (head && head.rows.length) {
+      for (var i = 0; i < head.rows.length; i++) {
+        countStrong(head.rows[i].textContent || '', total)
+      }
+    } else if (table.rows.length) {
+      countStrong(table.rows[0].textContent || '', total)
+    }
+    if (total.rtl + total.ltr < 2) {
+      total = countStrong(table.textContent || '', { rtl: 0, ltr: 0 })
+    }
+
+    if (total.rtl > total.ltr) table.setAttribute('dir', 'rtl')
+  }
+
   function sweep() {
     try {
       var blocks = document.querySelectorAll(BLOCK_SELECTOR)
       for (var i = 0; i < blocks.length; i++) applyBlock(blocks[i])
       var areas = document.querySelectorAll(TEXTAREA_SELECTOR)
       for (var j = 0; j < areas.length; j++) applyBlock(areas[j])
+      var tables = document.querySelectorAll(TABLE_SELECTOR)
+      for (var k = 0; k < tables.length; k++) markTable(tables[k])
     } catch (err) {
       /* leave the app alone if the DOM shape changed */
     }
