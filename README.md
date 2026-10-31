@@ -35,6 +35,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 - حذف کامل: `uninstall.ps1` را به همین شکل اجرا کنید و یک بار ری‌استارت کنید.
 - بعد از هر آپدیت اپ، `install.ps1` را دوباره اجرا کنید، یا یک‌بار خودکارسازی را نصب کنید
   (بخش «After a Freebuff app update» در ادامه).
+- **آپدیت ۲۰۲۶-۱۰-۳۱:** چت دیگر از `index.html` محلی اجرا نمی‌شود؛ پنجرهٔ چت خودِ
+  `https://freebuff.com` را باز می‌کند. نصب‌کننده حالا بلوک RTL را داخل preload همان پنجره در
+  `resources\app.asar` تزریق می‌کند (نیازمند Node.js یا `bun.exe` همراه اپ؛ اگر نبود، پوستهٔ
+  محلی پچ می‌شود و هشدار داده می‌شود). جزئیات در بخش «⚠️ Freebuff update of 2026-10-31».
 - اگر اپ در مسیر غیرمعمولی نصب است: `-UiPath "D:\Freebuff\resources\orchestrator\ui"`.
 
 ## What it does
@@ -57,6 +61,23 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
   with no internet or CDN dependency. The `@font-face` is scoped with `unicode-range` to
   Arabic-script code points, so Persian/Arabic glyphs come from Vazirmatn while Latin text
   keeps the original Google Sans. Code keeps DM Mono; sidebar/buttons are untouched.
+
+## ⚠️ Freebuff update of 2026-10-31 — read this first
+
+That update **moved the chat out of the local UI files**: the chat window is now a sandboxed
+window that loads `https://freebuff.com`, with its preload (`electron/hosted-preload.cjs`) inside
+`resources\app.asar`. Editing `resources\orchestrator\ui\index.html` no longer changes the chat
+(it is only the shell/loading page) — which is why the patch "applied" but nothing happened.
+
+The installer now patches **both** surfaces: the local shell document *and* the hosted window, by
+appending a self-contained block (stylesheet + embedded Vazirmatn + `dir="auto"` sweep) to that
+preload inside `app.asar` and rebuilding the archive (every entry is re-verified against the
+SHA256 hashes the archive carries before the file is written). Fonts go in as a `blob:` URL
+because the page CSP refuses `data:` fonts.
+
+Requirements for that step: Node.js **or** the `bun.exe` that ships with Freebuff — if neither is
+found the local shell is still patched and the installer warns instead of failing.
+`uninstall.ps1` rolls the archive back from `app.asar.freebuff-rtl.bak`.
 
 ## Requirements & scope
 
@@ -93,6 +114,9 @@ The installer:
 3. Injects a `<style>` and a `<script src="/freebuff-rtl-user.js">` tag before `</head>`.
 4. Copies `freebuff-rtl-user.js` and `Vazirmatn-Variable.woff2` next to it (served by the
    app's local server, so the app CSP accepts them).
+5. Patches the **hosted chat window**: `tools\apply-hosted-rtl.mjs` appends the RTL block to
+   `electron/hosted-preload.cjs` inside `resources\app.asar` (see the 2026-10-31 notice above) and
+   leaves the untouched archive as `app.asar.freebuff-rtl.bak`.
 
 Re-running the installer is safe — it refreshes the helper files and skips if already patched.
 It also *does not* require admin and never touches your profile or settings.
@@ -127,6 +151,8 @@ CreateObject("Wscript.Shell").Run "powershell -NoProfile -ExecutionPolicy Bypass
 | `freebuff-rtl.js` | same-origin script (`/freebuff-rtl-user.js`) applying `dir="auto"` per text block, with a MutationObserver for React re-renders/streaming |
 | `Vazirmatn-Variable.woff2` | chat font (SIL OFL 1.1 — see below) |
 | `install.ps1` / `uninstall.ps1` | installer (`-UiPath`, `-Quiet`) / remover (strips the injected block from the current `index.html`) |
+| `hosted/freebuff-rtl-hosted.css` | stylesheet variant for the hosted chat DOM (scoped to `.fb-desktop`, no `.msg` wrappers) |
+| `tools/apply-hosted-rtl.mjs` | rewrites `resources\app.asar` so the hosted window's preload carries the RTL block (idempotent, self-verifying; `--dry-run`, `--verify-only`) |
 | `FONT-LICENSE` | Vazirmatn font license text |
 
 ## How it works (for reviewers)
@@ -148,6 +174,17 @@ passes because only `script-src` is locked down. The patch:
   `dir="rtl"` on a table whose labels are Arabic-script; CSS then flips the column order and
   aligns cells to `start`. Headers with fewer than two letters (all-numeric) fall back to the
   table body. English tables get no attribute and are untouched.
+
+Since the 2026-10-31 build the chat itself is the hosted web app (`https://freebuff.com`, the
+same class names: `.prose`, `.user-message-text`, `.composer-input`, `.question-dock`), so the
+same rules are injected from the window preload instead: `hosted/freebuff-rtl-hosted.css` is the
+`.fb-desktop`-scoped variant (no `.msg` wrappers) and `tools/apply-hosted-rtl.mjs` embeds it,
+plus the font as base64 -> `blob:` URL, into `electron/hosted-preload.cjs` inside `app.asar`.
+The block is retried until `document.documentElement` exists (a preload can run before that),
+and it is a no-op on documents that already carry its marker.
+
+Electron fuses on that build keep `EnableEmbeddedAsarIntegrityValidation` **off** (so a modified
+archive still loads) and `OnlyLoadAppFromAsar` **on** (so the archive is the only target).
 
 Tested against the Windows build of Freebuff Desktop (October 2026 build) with mixed
 Persian/English threads, lists, code fences and tables in both light and dark themes.

@@ -31,6 +31,31 @@ if (-not $ui) {
   Write-Error 'Freebuff Desktop ui folder not found. Pass -UiPath "<...\resources\orchestrator\ui>".'
 }
 
+# --- hosted chat window (app.asar) ------------------------------------------
+# The RTL block is injected into electron/hosted-preload.cjs inside app.asar;
+# the installer keeps the untouched archive next to it. Only roll back when the
+# current archive still carries our marker, so an app update that replaced it
+# is never downgraded to an older build.
+$installDir = $ui
+while ($installDir -and (Split-Path $installDir -Leaf) -ne 'resources') {
+  $installDir = Split-Path $installDir -Parent
+}
+if ($installDir) { $installDir = Split-Path $installDir -Parent }
+$asar       = if ($installDir) { Join-Path $installDir 'resources\app.asar' } else { $null }
+$asarBackup = if ($asar) { "$asar.freebuff-rtl.bak" } else { $null }
+$hostedRemoved = $false
+if ($asar -and (Test-Path $asar) -and (Test-Path $asarBackup)) {
+  try {
+    $bytes = [System.IO.File]::ReadAllBytes($asar)
+    if ([System.Text.Encoding]::UTF8.GetString($bytes).Contains('freebuff-rtl-hosted v1')) {
+      Copy-Item $asarBackup $asar -Force
+      $hostedRemoved = $true
+    }
+  } catch {
+    Write-Warning ('Could not restore {0}: {1}' -f $asar, $_.Exception.Message)
+  }
+}
+
 $html     = Join-Path $ui 'index.html'
 $jsDest   = Join-Path $ui 'freebuff-rtl-user.js'
 $fontDest = Join-Path $ui 'freebuff-rtl-font.woff2'
@@ -40,7 +65,10 @@ $content = Get-Content $html -Raw
 
 if (-not $content.Contains($marker)) {
   foreach ($f in @($jsDest, $fontDest)) { if (Test-Path $f) { Remove-Item $f -Force } }
-  if (-not $Quiet) { Write-Host 'Nothing to remove - index.html has no RTL patch marker.' }
+  if (-not $Quiet) {
+    if ($hostedRemoved) { Write-Host "RESTORED: $asar" }
+    Write-Host 'Nothing to remove from index.html - it has no RTL patch marker.'
+  }
   exit 0
 }
 
@@ -60,4 +88,5 @@ foreach ($f in @($jsDest, $fontDest)) {
 
 if ($Quiet) { exit 0 }
 Write-Host "RESTORED: $html"
+if ($hostedRemoved) { Write-Host "RESTORED: $asar" }
 Write-Host 'Restart the Freebuff app to see the effect.'

@@ -1,0 +1,117 @@
+/* ============================================================================
+   freebuff-rtl-hosted.css — Persian RTL for the hosted Freebuff UI
+
+   Since the 2026-10-31 desktop update the chat is no longer the local
+   orchestrator page; the app opens https://freebuff.com in its own sandboxed
+   window (preload: electron/hosted-preload.cjs). This file targets that DOM:
+     .prose                  <- assistant markdown (inside .bubble)
+     .user-message-text      <- your typed message text
+     .composer [data-composer-input] / .composer-input
+     .question-dock, .question-text, ... <- ask/plan dock
+     .md-code/.md-pre/.md-inline/.md-table-wrap <- code + tables
+
+   Everything is scoped under .fb-desktop (the class the hosted shell always
+   carries) so marketing pages of the same site are untouched. The hosted
+   build writes its own rules as `:where(.fb-desktop) ...` (zero specificity),
+   so ours win without !important.
+
+   The @font-face src is a placeholder: hosted-preload.cjs replaces
+   __RTL_FONT_URL__ with a blob: URL built from the embedded woff2 (the page
+   CSP allows blob fonts, data: fonts are refused).
+============================================================================ */
+
+/* ---- 1. Chat text mirrors --------------------------------------------- */
+.fb-desktop .prose {
+  direction: rtl;
+  text-align: start;
+}
+/* The user bubble is NOT forced to rtl: the JS patch sets dir="auto" on it, so
+   a Latin-only message keeps its own direction. Author CSS would outrank the
+   dir attribute, hence only alignment here. */
+.fb-desktop .user-message-text {
+  text-align: start;
+}
+
+.fb-desktop .prose :is(p, h1, h2, h3, h4, h5, h6, blockquote, li, dd, dt),
+.fb-desktop .user-message-text {
+  text-align: start;
+}
+
+/* ---- 2. List side padding that the app hard-codes for LTR -------------- */
+.fb-desktop .prose :is(ul, ol) {
+  padding-left: 0;
+  padding-right: 24px;
+}
+.fb-desktop .prose blockquote {
+  border-left: 0;
+  border-right: 3px solid var(--dk-control-border, var(--border, #3a3a3a));
+}
+
+/* ---- 3. Font: Vazirmatn for Persian, the app stack for Latin ----------- */
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('__RTL_FONT_URL__') format('woff2-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  /* Arabic script + Persian/Arabic punctuation and ZWNJ/RLM. Latin letters
+     fall outside the range and keep the next font in the stack. */
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-08FF, U+FB50-FDFF,
+    U+FE70-FEFF, U+200C-200F;
+}
+.fb-desktop .prose,
+.fb-desktop .question-dock,
+.fb-desktop .qedit,
+.fb-desktop .user-message-text,
+.fb-desktop .composer [data-composer-input],
+.fb-desktop .composer-input {
+  font-family: 'Vazirmatn', "Desktop Google Sans", "Google Sans", system-ui,
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+}
+
+/* ---- 4. Composer: each typed line picks its own direction --------------
+   `dir="auto"` sets the base direction from the FIRST strong character of the
+   whole content, so a Persian line typed after an English one would stay
+   left-aligned. `unicode-bidi: plaintext` splits the contenteditable into
+   per-paragraph bidi blocks; text-align: start aligns each to its own side. */
+.fb-desktop .composer [data-composer-input],
+.fb-desktop .composer-input,
+.fb-desktop .qedit,
+.fb-desktop .question-free {
+  unicode-bidi: plaintext;
+  text-align: start;
+}
+
+/* ---- 5. Ask/plan dock text -------------------------------------------- */
+.fb-desktop .question-text,
+.fb-desktop .question-chip,
+.fb-desktop .question-hint,
+.fb-desktop .question-option-label,
+.fb-desktop .question-option-desc,
+.fb-desktop .question-plan,
+.fb-desktop .question-free {
+  text-align: start;
+}
+
+/* ---- 6. Code, inline code, tables, diffs: LTR islands ------------------ */
+.fb-desktop .prose :is(code, pre, .md-inline, .md-code, .md-code-head, .md-code-lang, .md-pre, .md-table-wrap, .md-table-scroll) {
+  direction: ltr;
+  text-align: left;
+  unicode-bidi: isolate;
+}
+
+/* ---- 6b. Tables whose own content is Persian: mirror the table --------
+   A table whose header cells are Arabic-script gets dir="rtl" from the JS
+   patch, which flips column order (first column on the right); these rules
+   align every cell to that direction's start edge. English tables keep the
+   app's LTR layout. */
+.fb-desktop .prose table[dir='rtl'] {
+  direction: rtl;
+}
+.fb-desktop .prose table[dir='rtl'] :is(th, td) {
+  text-align: start;
+}
+.fb-desktop .prose .md-table-wrap:has(> .md-table-scroll > table[dir='rtl']),
+.fb-desktop .prose .md-table-scroll:has(> table[dir='rtl']) {
+  direction: rtl;
+}

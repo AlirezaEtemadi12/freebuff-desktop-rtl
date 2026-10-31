@@ -50,6 +50,39 @@ if (-not (Test-Path $fontDest) -or ((Get-Item $fontDest).Length -ne (Get-Item $f
   Copy-Item $fontS $fontDest -Force
 }
 
+# --- hosted chat window (app.asar :: electron/hosted-preload.cjs) -----------
+# Since the 2026-10-31 update the chat is NOT this local document: the app opens
+# https://freebuff.com in a sandboxed window whose preload lives inside
+# resources\app.asar. The tool in tools\ appends the RTL block (stylesheet +
+# embedded Vazirmatn + dir="auto" sweep) to that preload and rebuilds the
+# archive, verifying every entry against the SHA256 hashes the archive carries.
+$hostedTool = Join-Path $PSScriptRoot 'tools\apply-hosted-rtl.mjs'
+if (Test-Path $hostedTool) {
+  $installDir = $ui
+  while ($installDir -and (Split-Path $installDir -Leaf) -ne 'resources') {
+    $installDir = Split-Path $installDir -Parent
+  }
+  if ($installDir) { $installDir = Split-Path $installDir -Parent }
+  $asar = if ($installDir) { Join-Path $installDir 'resources\app.asar' } else { $null }
+
+  if (-not $asar -or -not (Test-Path $asar)) {
+    if (-not $Quiet) { Write-Warning 'app.asar was not found next to the ui folder; the hosted chat window was not patched.' }
+  } else {
+    $nodeCmd = Get-Command node -ErrorAction SilentlyContinue
+    $runtime = if ($nodeCmd) { $nodeCmd.Source } else { Join-Path $installDir 'resources\bun\bun.exe' }
+    if (-not (Test-Path $runtime)) {
+      if (-not $Quiet) { Write-Warning 'Node.js (or the bun.exe shipped with Freebuff) was not found; the hosted chat window was not patched.' }
+    } else {
+      $hostedArgs = @($hostedTool, '--install', $installDir)
+      if ($Quiet) { $hostedArgs += '--quiet' }
+      & $runtime @hostedArgs
+      if ($LASTEXITCODE -ne 0 -and -not $Quiet) {
+        Write-Warning 'Patching the hosted chat window failed; the local shell was still patched.'
+      }
+    }
+  }
+}
+
 $content = Get-Content $html -Raw
 
 # Strip every previously injected comment / inline <style> / <script> first.
